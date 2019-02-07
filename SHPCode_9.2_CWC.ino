@@ -53,7 +53,12 @@ const int pwmMin = 80;
 const int pwmMax = 255;
 
 //Hall Sensor
-boolean hallState
+boolean hallState = LOW;
+boolean hallLastState = LOW;
+int magCounter = 0;
+const int numMagnets = 28;
+float RPM;
+
 
 //LED Stuff
 int ledState = HIGH;
@@ -75,8 +80,8 @@ long lastDebounceTime = 0; //Time stamp for debouncing
 long debounceDelay = 50 * timeFactor; //Debounce time
 
 									  //Serial Printout
-long lastPrintoutTime = 0;
-long PrintoutInterval = 500 * timeFactor;
+long lastReportTime = 0;
+long reportInterval = 500 * timeFactor;
 
 // States
 #define S_Reset 0
@@ -130,12 +135,29 @@ void loop() {
 	readButton(); //read the pushbutton
 	if (LEDstate != oldLEDState) setLED();
 	showLED(); //Displays the current status on the LED
-	Printout();
+	report();
 }
 
 void readHall() {
-
+	hallState = digitalRead(hallPin);
+	if (hallState != hallLastState) {
+		magCounter++;
+		hallLastState = hallState;
+	} 
 }
+
+void report() {
+	int timeSinceLastReport = millis() - lastReportTime;
+	if (timeSinceLastReport > reportInterval) {
+		RPM = magCounter /2.0 / timeSinceLastReport * 1000 * timeFactor / numMagnets;
+		
+		lastReportTime = millis();
+		magCounter = 0;
+		Printout();
+	}
+	
+}
+
 
 void setState() {
 	switch (state) {
@@ -370,7 +392,9 @@ void showLED() {
 }
 
 void Printout() {
-	if ((millis() - lastPrintoutTime) > PrintoutInterval) {
+	
+		DEBUG_PRINT(" RPM: ");
+		DEBUG_PRINT(RPM);
 		DEBUG_PRINT(" State: ");
 		DEBUG_PRINT(state);
 		DEBUG_PRINT(" ,LED: ");
@@ -385,6 +409,5 @@ void Printout() {
 		DEBUG_PRINT(mvolts);
 		DEBUG_PRINT(", maxPvolts= ");
 		DEBUG_PRINTLN(maxpowvolts);
-		lastPrintoutTime = millis();
-	}
+		
 }
