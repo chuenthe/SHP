@@ -106,6 +106,13 @@ long debounceDelay = 50 * timeFactor; //Debounce time
 long lastReportTime = 0;
 long reportInterval = 1000 * timeFactor;
 
+//Debugging
+int dbMaxVolts = 0; //To capture maximum voltage
+int dbMinVolts; //To capture minimum voltage measurement
+const int dbArraySize = 1;
+unsigned int dbArray [3] [dbArraySize];
+int dbArrayCounter = 0; //dbArrayCounter points to the OLDEST element in dbArray
+
 // States
 #define S_Reset 0
 #define S_Check 1
@@ -158,15 +165,18 @@ void setup() {
 }
 
 void loop() {
-	//loopInTime = micros();
+	//loopInTime = micros(); // for debugging
 	ReadVolts();
-	readHall();
+	//readHall(); //only activate if hall sensor is active
 	setState();
 	readButton(); //read the pushbutton
 	if (LEDstate != oldLEDState) setLED();
 	showLED(); //Displays the current status on the LED
+#ifdef DEBUG
+	DebugValues();
+#endif //DEBUG 
 	report();
-	//loopTime = (micros() - loopInTime) / timeFactor;
+	//loopTime = (micros() - loopInTime) / timeFactor; //for debugging
 }
 
 void readHall() {
@@ -184,10 +194,16 @@ void report() {
 		lastReportTime = millis();
 		magCounter = 0;
 		Printout();
+
+#ifdef DEBUG
+		//DBPrintArray();
+#endif // DEBUG
+
+		dbMaxVolts = 0; //resets the maximum voltage tracker
+		dbMinVolts = 100000; //resets the minimum voltage tracker
 	}
 
 }
-
 
 void setState() {
 	switch (state) {
@@ -251,7 +267,6 @@ void actionButton() { //this gets called if a digital button is pushed
 	}
 	LEDstate = D_SET_PRESSURE;
 }
-
 
 void ReadVolts() {
 	vdiv = analogRead(VinputPin);
@@ -517,4 +532,25 @@ void Printout() {
 	DEBUG_PRINT(", maxPvolts= ");
 	DEBUG_PRINTLN(maxpowvolts);
 
+}
+
+void DebugValues() {
+	if (mvolts > dbMaxVolts) dbMaxVolts = mvolts;
+	if (mvolts < dbMinVolts) dbMinVolts = mvolts;
+	//dbArray[0][dbArrayCounter] = millis();
+	//dbArray[1][dbArrayCounter] = mvolts;
+	//dbArray[2][dbArrayCounter] = pwm;
+	//dbArrayCounter = (dbArrayCounter + 1) % dbArraySize; //dbArrayCounter points to the OLDEST element in dbArray
+}
+
+void DBPrintArray() {
+	int dbAIndex = dbArrayCounter;
+	for (int i = 0; i < dbArraySize; i++) {
+		DEBUG_PRINT(dbArray[0][dbAIndex]);
+		DEBUG_PRINT(", ");
+		DEBUG_PRINT(dbArray[0][dbAIndex]);
+		DEBUG_PRINT(", ");
+		DEBUG_PRINTLN(dbArray[0][dbAIndex]);
+		dbAIndex = (dbAIndex +1 ) % dbArraySize;
+	}
 }
