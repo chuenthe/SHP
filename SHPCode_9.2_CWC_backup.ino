@@ -19,14 +19,14 @@ const int hallPin = 8;
 
 //definition of colour LED Pins
 #define RED 10
-#define GREEN 11
 #define BLUE 12
+#define GREEN 11
 #define LED_OFF 13 //not connected, so LED off
 
 const int timeFactor = 8; //This is a factor to apply to all time intervals if the internal clock is sped up
 
 
-//Pressure Sensor/////////////////////////////////////////////////////////////////////////////////////////
+//Pressure Sensor
 int psensor = 500;  //250 for a sensor of 2.5MPa (500 for 5Mpa)
 int Pmax = 100; // 1800Kpa / 180 meters head
 int PmaxDefault = 300; //Max Pressure that is set if there is no saved pressure setting
@@ -40,12 +40,11 @@ unsigned long VocCounter = 0;
 unsigned long counter = 0;
 unsigned long idlecounter = 0;
 
-//Voltage/////////////////////////////////////////////////////////////////////////////////////////////
+//Voltage
 float k = 0.8; // Vmpp = Voc x k
 const unsigned int startvolts = 58000; // Voc needed to attempt pump start
-const unsigned int maintainvolts = 50000; // below this voltage pump cannot run so will stop, idle and reset
+unsigned int maintainvolts = 55000; // below this voltage pump cannot run so will stop, idle and reset
 long maxpowvolts = 58000; // Default Vmpp
-long minMPP = 55000; //minimum voltage of max power point setting to avoid stalling the speed controller
 long Voc = 0;
 int vdiv = 0;
 unsigned long mvolts = 0;
@@ -54,7 +53,7 @@ int VdivMapAdj = 536;
 float dropoutFactor = 0.77; // percentage of MPPT at which state goes into reset when in running state
 unsigned long volt_diff;
 
-//PWM stuff/////////////////////////////////////////////////////////////////////////////////////////////
+//PWM stuff
 int upPWMdelay = 1000; // change to alter acceleration speed
 int downPWMdelay = 100; // change to alter deceleration speed
 int pwmDelay; // speed loaded with either upPWMdelay or downPWMdelay
@@ -63,29 +62,30 @@ int pwmUpStep = 1;
 int pwmDownStep = 1;
 boolean inStartup = true;
 const int pwmMin = 80;
-const int pwmMax = 180;
+const int pwmMax = 200;
 long pwmTimeStamp = 0;
 boolean ignitionSwitch = true;
 
-int upPWMdelaySU = 200 * timeFactor; //determines acceleration speed during startup
-int downPWMdelaySU = 200 * timeFactor; //determines deceleration speed during startup
+int upPWMdelaySU = 100 * timeFactor; //determines acceleration speed during startup
+int downPWMdelaySU = 100 * timeFactor; //determines deceleration speed during startup
 int pwmUpStepSU = 1; //pwm increase step during startup
 int pwmDownStepSU = 1; //pwm decrease step during startup
-int pwmUpperLimSU = 90; //pwm limit for startup -> run status
+int pwmUpperLimSU = 85; //pwm limit for startup -> run status
 
-int upPWMdelayRun = 5 * timeFactor; //determines acceleration speed during normal running
-int downPWMdelayRun = 5 * timeFactor; //determines deceleration speed during normal running
+int upPWMdelayRun = 3 * timeFactor; //determines acceleration speed during normal running
+int downPWMdelayRun = 3 * timeFactor; //determines deceleration speed during normal running
 int pwmUpStepRun = 1; //pwm increase step during normal running
 int pwmDownStepRun = 1; //pwm decrease step during normal running
 
-//Hall Sensor/////////////////////////////////////////////////////////////////////////////
+//Hall Sensor
 boolean hallState = LOW;
 boolean hallLastState = LOW;
 int magCounter = 0;
 const int numMagnets = 28;
 float RPM;
 
-//LED Stuff /////////////////////////////////////////////////////////////////////////
+
+//LED Stuff
 int ledState = HIGH;
 int ledColour = GREEN;
 boolean holdStatus = 0; //Does the status need to be held on the LED? 
@@ -97,27 +97,25 @@ const int blinkLong = 800 * timeFactor; //long blink time
 int blinkInterval; //Measures time between LED blinks
 long lastBlinkTime = 0; //Time stamp for blinking
 
-//Button Stuff//////////////////////////////////////////////////////////////////////
+						//Button Stuff
 int buttonRead; //current button read
 int buttonState; //confirmed button state after debounce
 int lastButtonState = LOW; //compared with buttonread to detect something is happening
 long lastDebounceTime = 0; //Time stamp for debouncing
 long debounceDelay = 50 * timeFactor; //Debounce time
-long lastButtonCheckTime = 0;
-long buttonCheckInterval = 50 * timeFactor; //This also determines the update time of the LEDs
 
-//Serial Printout/////////////////////////////////////////////////////////////////
+									  //Serial Printout
 long lastReportTime = 0;
 long reportInterval = 1000 * timeFactor;
 
-//Debugging/////////////////////////////////////////////////////////////////////
-unsigned long dbMaxVolts = 0; //To capture maximum voltage
-unsigned long dbMinVolts; //To capture minimum voltage measurement
+//Debugging
+int dbMaxVolts = 0; //To capture maximum voltage
+int dbMinVolts; //To capture minimum voltage measurement
 //const int dbArraySize = 1;
 //unsigned int dbArray [3] [dbArraySize];
 //int dbArrayCounter = 0; //dbArrayCounter points to the OLDEST element in dbArray
 
-// States///////////////////////////////////////////////////////////////////////
+// States
 #define S_Reset 0
 #define S_Check 1
 #define S_IdlePressure 2
@@ -144,8 +142,6 @@ int oldLEDState = LEDstate; //to detect change in state
 
 unsigned long loopInTime = 0;
 unsigned long loopTime = 0;
-int loopCounter = 0;
-unsigned long avLoopTime = 0;
 
 //EEPROM stuff
 #include <EEPROM.h>
@@ -172,28 +168,26 @@ void setup() {
 }
 
 void loop() {
-	loopInTime = micros(); // for debugging
+	//loopInTime = micros(); // for debugging
 	//ReadVolts();
 	//readHall(); //only activate if hall sensor is active
 	setState();
+	readButton(); //read the pushbutton
+	showLED(); //Displays the current status on the LED
+#ifdef DEBUG
 	DebugValues();
-	if ((millis() - lastButtonCheckTime) > buttonCheckInterval) {
-		readButton(); //read the pushbutton
-		showLED(); //Displays the current status on the LED
-		#ifdef DEBUG
-			report();
-		#endif //DEBUG 
-		lastButtonCheckTime = millis();
-	}	
-	loopTime = (micros() - loopInTime) / timeFactor; //for debugging 
-	avLoopTime = avLoopTime + loopTime;
-	loopCounter++;
+	report();
+#endif //DEBUG 
+	//loopTime = (micros() - loopInTime) / timeFactor; //for debugging
 }
+
+
+
 
 void setState() {
 	switch (state) {
 	case S_Reset:
-		//LEDstate = D_IDLE;
+		LEDstate = D_IDLE;
 		F_Reset();
 		break;
 	case S_Check:
@@ -219,7 +213,6 @@ void setState() {
 		break;
 	case S_OFF:
 		LEDstate = D_OFF;
-		F_Check();
 		break;
 	}
 }
@@ -289,7 +282,7 @@ void F_Check() {
 	ReadPressure();
 
 	if (inStartup == true) {
-		//maintainvolts = maxpowvolts;
+		maintainvolts = maxpowvolts;
 		upPWMdelay = upPWMdelaySU;
 		downPWMdelay = downPWMdelaySU;
 		pwmUpStep = pwmUpStepSU;
@@ -297,16 +290,16 @@ void F_Check() {
 		if (pwm > pwmUpperLimSU) inStartup = false;
 	}
 	else {
-		//maintainvolts = maxpowvolts *dropoutFactor;
+		maintainvolts = maxpowvolts * dropoutFactor;
 		upPWMdelay = upPWMdelayRun;
 		downPWMdelay = downPWMdelayRun;
-		//volt_diff = (maxpowvolts - mvolts) / 1000;
-		pwmUpStep = pwmUpStepRun;// *abs(volt_diff);
-		pwmDownStep = pwmDownStepRun;// *abs(volt_diff);
+		volt_diff = (maxpowvolts - mvolts) / 1000;
+		pwmUpStep = pwmUpStepRun;
+		pwmDownStep = pwmDownStepRun;
 	}
 	if (mvolts < 1000) { //ignition circuit broken by on/off switch or float sensor
 		analogWrite(pwmPIN, 0);
-		state = S_OFF; //stay in off until this changes
+		state = S_OFF;
 		ignitionSwitch = true;
 	}
 	else if (millis() >= VocCounter) {
@@ -365,15 +358,12 @@ void F_Run() {
 }
 
 void F_Idle() {
-	if (mvolts < 1000) {
-		state = S_OFF;
+	if (millis() < idlecounter) {
+		analogWrite(pwmPIN, 0);
 	}
-	else if (millis() < idlecounter) {
-			analogWrite(pwmPIN, 0);
-		}
 	else {
-			state = S_Reset;
-		}
+		state = S_Reset;
+	}
 }
 
 void F_VocCheck() {
@@ -385,7 +375,6 @@ void F_VocCheck() {
 	DEBUG_PRINT(", BFmaxPvolts= ");
 	DEBUG_PRINT(maxpowvolts);
 	maxpowvolts = mvolts * k;
-	if (maxpowvolts < minMPP) maxpowvolts = minMPP;
 	VocCounter = millis() + VocSampleRate;
 	DEBUG_PRINT(", AFTmaxPvolts= ");
 	DEBUG_PRINTLN(maxpowvolts);
@@ -463,9 +452,9 @@ void showLED() {
 }
 
 void EEread() {
-	Add1 = EEPROM.read(9);
-	Add2 = EEPROM.read(17);
-	Add3 = EEPROM.read(41);
+	Add1 = EEPROM.read(7);
+	Add2 = EEPROM.read(15);
+	Add3 = EEPROM.read(39);
 	DEBUG_PRINT("EEPROM Values     ");
 	DEBUG_PRINT(Add1);
 	DEBUG_PRINT("   ");
@@ -490,9 +479,9 @@ void EEread() {
 }
 
 void EEwrite() {
-	EEPROM.write(9, Pmax);
-	EEPROM.write(17, Pmax);
-	EEPROM.write(41, Pmax);
+	EEPROM.write(7, Pmax);
+	EEPROM.write(15, Pmax);
+	EEPROM.write(39, Pmax);
 	DEBUG_PRINTLN("EEPROM WRITE");
 	DEBUG_PRINT("Current Pressure = ");
 	DEBUG_PRINT(Pressure);
@@ -503,6 +492,11 @@ void EEwrite() {
 void DebugValues() {
 	if (mvolts > dbMaxVolts) dbMaxVolts = mvolts;
 	if (mvolts < dbMinVolts) dbMinVolts = mvolts;
+	/*dbArray[0][dbArrayCounter] = millis();
+	dbArray[1][dbArrayCounter] = mvolts;
+	dbArray[2][dbArrayCounter] = pwm;
+	dbArrayCounter = (dbArrayCounter + 1) % dbArraySize; //dbArrayCounter points to the OLDEST element in dbArray
+	*/
 }
 
 void report() {
@@ -511,20 +505,17 @@ void report() {
 		RPM = magCounter / 2.0 / timeSinceLastReport * 1000 * timeFactor / numMagnets;
 		lastReportTime = millis();
 		magCounter = 0;
-		avLoopTime = avLoopTime / loopCounter;
 		Printout();
 		dbMaxVolts = 0; //resets the maximum voltage tracker
 		dbMinVolts = 100000; //resets the minimum voltage tracker
-		avLoopTime = 0;
-		loopCounter = 0;
 	}
 
 }
 
 void Printout() {
 
-	DEBUG_PRINT(" loop: ");
-	DEBUG_PRINT(avLoopTime);
+	//		DEBUG_PRINT(" loop: ");
+	//		DEBUG_PRINT(loopTime);
 	DEBUG_PRINT(" SU: ");
 	DEBUG_PRINT(inStartup);
 	DEBUG_PRINT(" State: ");
@@ -539,12 +530,26 @@ void Printout() {
 	DEBUG_PRINT(pwm);
 	DEBUG_PRINT(", mvolts= ");
 	DEBUG_PRINT(mvolts);
-	DEBUG_PRINT(", minvolts= ");
-	DEBUG_PRINT(dbMinVolts);
 	DEBUG_PRINT(", maxPvolts= ");
 	DEBUG_PRINTLN(maxpowvolts);
+	//DBPrintArray();
 
 }
+
+
+/*
+void DBPrintArray() {
+	int dbAIndex = dbArrayCounter;
+	for (int i = 0; i < dbArraySize; i++) {
+		DEBUG_PRINT(dbArray[0][dbAIndex]);
+		DEBUG_PRINT(", ");
+		DEBUG_PRINT(dbArray[0][dbAIndex]);
+		DEBUG_PRINT(", ");
+		DEBUG_PRINTLN(dbArray[0][dbAIndex]);
+		dbAIndex = (dbAIndex +1 ) % dbArraySize;
+	}
+}
+*/
 
 void readHall() {
 	hallState = digitalRead(hallPin);

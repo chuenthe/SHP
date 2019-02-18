@@ -117,7 +117,7 @@
   </ImportGroup>
   <ProjectExtensions>
     <VisualStudio>
-      <UserProperties VM.DebugTextMessages.SerialWindow="0" VM.DebugVariablesWindow.ColumnVisibleVariableValue="1" VM.DebugVariablesWindow.ColumnVisibleFunctionName="1" />
+      <UserProperties VM.DebugTextMessages.SerialWindow="0" VM.DebugVariablesWindow.ColumnVisibleVariableValue="1" arduino.upload.port="COM5" VM.DebugVariablesWindow.ColumnVisibleFunctionName="1" />
     </VisualStudio>
   </ProjectExtensions>
 </Project>
